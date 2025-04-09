@@ -10,6 +10,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.settings_window = Settings_Window()  # Ссылка на окно настроек
+        self.settings_window.switch_to_main.connect(self.show_main_window)  # Связываем сигнал
 
         self.settings_window.theme_changed.connect(self.update_theme) # обновление настроек главного экрана
 
@@ -140,7 +141,7 @@ class MainWindow(QMainWindow):
         try:
             if self.settings_window is None:  
                 self.settings_window = Settings_Window()
-                self.settings_window.switch_to_main.connect(self.show_main_window)  # Связываем сигнал
+                
                 
             self.settings_window.show()
             self.settings_window.raise_()
