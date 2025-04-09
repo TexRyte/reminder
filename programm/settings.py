@@ -230,11 +230,6 @@ class Settings_Window(QMainWindow):
             color: rgb(255, 255, 255);\n
             border-radius: 10px;\n"""
         
-        self.btn_resol_var_1.setChecked(True)
-        self.btn_window_mode_var_3.setChecked(True)
-        self.btn_theme_var_1.setChecked(True)
-        
-        
     def save_properties(self):
         self.check_buttons()
 
@@ -244,9 +239,6 @@ class Settings_Window(QMainWindow):
                           "widget_theme" : self.widget_theme}
             json.dump(temp_dict, f)
             del temp_dict
-
-        self.set_theme()  
-
         
     
     def set_theme(self):
@@ -255,18 +247,10 @@ class Settings_Window(QMainWindow):
             self.main_box_theme = temp_dict["main_box_theme"]
             self.buttons_theme = temp_dict["buttons_theme"]
             self.widget_theme = temp_dict["widget_theme"]
+
         
-        self.setStyleSheet(self.main_box_theme)
-                
-        self.theme_changed.emit(temp_dict) 
-        list_of_buttons = [self.btn_back, self.btn_default, self.btn_save]
-        list_of_layouts = [self.resol_layout, self.window_mode_layout, self.theme_layout, self.startup_layout]
+        self.theme_changed.emit(temp_dict) # Отправляем новые стили
 
-        for i in list_of_buttons:
-            i.setStyleSheet(self.buttons_theme)
-
-        for i in list_of_layouts:
-            i.findChildren(QWidget).setStyleSheet(self.widget_theme)
         del temp_dict
 
     def check_buttons(self):
