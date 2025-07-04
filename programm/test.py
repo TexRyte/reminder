@@ -19,8 +19,12 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Напоминалка")
         # Минимальное разрешение - ноутбучное 1280x720, но могут быть 1920x1080 и 1280x1024
         QTimer.singleShot(0, lambda: self.setGeometry(0, 31, 1280, 720))
+
+        # Сохранённые настройкиs
+        with open("settings.json") as f:
+            theme_data = json.load(f)
         
-        self.setStyleSheet("background-color: rgb(255, 255, 255);")
+        self.setStyleSheet(theme_data["main_box_theme"])
 
         self.centralwidget = QWidget(self)
         self.setCentralWidget(self.centralwidget)
@@ -32,15 +36,11 @@ class MainWindow(QMainWindow):
         self.ScheduleTable = QTableWidget()  
         self.ScheduleTable.setColumnCount(8)
         self.ScheduleTable.setHorizontalHeaderLabels(["Дата/Время","Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"])
-        self.ScheduleTable.setStyleSheet(
-            "border-style: solid;\n"
-            "border-width: 1px;\n"
-            "border-color: none grey none none;" # Надо, чтобы было видно границу между рассписанием и блоком слева 
-            )
+        self.ScheduleTable.setStyleSheet(theme_data["ScheduleTable_theme"])
         self.ScheduleTable.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.ScheduleTable.setMinimumSize(QSize(1000, 720))
         self.ScheduleTable.horizontalHeader().setDefaultSectionSize(125)
-        self.ScheduleTable.horizontalHeader().setFont(QFont("Century", 12))
+        self.ScheduleTable.horizontalHeader().setFont(QFont("Arial", 12))
 
         # Создание InteractionBox
 
@@ -83,13 +83,7 @@ class MainWindow(QMainWindow):
 
         list_of_buttons = [self.btn_add, self.btn_settings, self.btn_quit]
 
-        btn_style = """
-        QPushButton {
-            border-radius: 10px;
-            background-color: rgb(100, 149, 237);
-            color: rgb(255, 255, 255);
-        }
-        """
+        btn_style = theme_data["buttons_theme"]
 
         for i in list_of_buttons:
             i.setMinimumSize(QSize(230, 30))
@@ -128,9 +122,15 @@ class MainWindow(QMainWindow):
         self.btn_quit.setFont(self.btn_font)
 
     def update_theme(self, theme_data):
-        self.main_theme = theme_data["main_box_theme"]
-        self.buttons_theme = theme_data["buttons_theme"]
-        self.widget_theme = theme_data["widget_theme"]
+        # Применение нового стиля:
+        self.setStyleSheet(theme_data["main_box_theme"])
+
+        # Обновление стиля кнопок
+        btns = [self.btn_add, self.btn_settings, self.btn_quit]
+        for b in btns:
+            b.setStyleSheet(theme_data["buttons_theme"])
+        
+        self.ScheduleTable.setStyleSheet(theme_data["ScheduleTable_theme"])
 
     def show_main_window(self):
         self.show() 

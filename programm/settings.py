@@ -14,7 +14,8 @@ class Settings_Window(QMainWindow):
         super().__init__()
 
         # Настройки
-        self.set_theme()
+        with open ("settings.json") as f:
+            temp_data = json.load(f)
     
         self.first_resize_done = False  # Нужен флаг, ибо при запуске окно меняет размер дважды
         
@@ -24,7 +25,7 @@ class Settings_Window(QMainWindow):
         self.setWindowTitle("Настройки")
         QTimer.singleShot(0, lambda: self.setGeometry(0, 31, 1280, 720))
         
-        self.setStyleSheet(self.main_box_theme)
+        self.setStyleSheet(temp_data["main_box_theme"])
 
         self.centralwidget = QWidget(self)
         self.setCentralWidget(self.centralwidget)
@@ -70,19 +71,25 @@ class Settings_Window(QMainWindow):
             # Тема
         
         self.theme_layout = QGridLayout()
-        self.btn_theme_var_1 = QRadioButton("Светлая")
-        self.btn_theme_var_2 = QRadioButton("Тёмная")
+        self.btn_light_theme = QRadioButton("Светлая")
+        self.btn_dark_theme = QRadioButton("Тёмная")
 
         self.theme_buttons_group = QButtonGroup()
         self.theme_layout.addWidget(QLabel("Тема"), 0, 0, 2, 1, alignment=Qt.AlignCenter)
 
-        list_of_buttons = [self.btn_theme_var_1, self.btn_theme_var_2]
+        list_of_buttons = [self.btn_light_theme, self.btn_dark_theme]
 
         for i in range(2):
             self.theme_buttons_group.addButton(list_of_buttons[i])
             self.theme_layout.addWidget(list_of_buttons[i], i, 1, 1, 1, alignment=Qt.AlignCenter)
 
         del list_of_buttons
+
+        if temp_data["current_theme"] == "light":
+            self.btn_light_theme.setChecked(True)
+
+        if temp_data["current_theme"] == "dark":
+            self.btn_dark_theme.setChecked(True)
 
             # Автозагрузка 
         
@@ -106,7 +113,7 @@ class Settings_Window(QMainWindow):
 
         for i in list_of_layouts:
             temp_widget = QWidget()
-            temp_widget.setStyleSheet(self.widget_theme)
+            temp_widget.setStyleSheet(temp_data["widget_theme"])
 
             temp_widget.setLayout(i)
             temp_widget.setMinimumSize(320, 200)
@@ -159,13 +166,12 @@ class Settings_Window(QMainWindow):
         self.btn_default = QPushButton("По умолчанию")
         self.btn_save = QPushButton("Сохранить")
 
-        btn_style = self.buttons_theme
         list_of_buttons = [self.btn_back, self.btn_default, self.btn_save]
 
         for i in list_of_buttons:
             i.setMinimumSize(QSize(230, 50))
             i.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            i.setStyleSheet(btn_style)
+            i.setStyleSheet(temp_data["buttons_theme"])
 
         del list_of_buttons
 
@@ -191,6 +197,8 @@ class Settings_Window(QMainWindow):
         
         QTimer.singleShot(0, self.update_button_font)
         QTimer.singleShot(0, self.update_menu_font)
+
+
 
     # Создание адаптивности шрифта кнопок нижней панели
     def update_button_font(self):
@@ -229,30 +237,35 @@ class Settings_Window(QMainWindow):
             background-color: rgb(100, 149, 237);\n
             color: rgb(255, 255, 255);\n
             border-radius: 10px;\n"""
-        
+    
+    # Применение настроек
+    def set_properties(self, props):
+        self.setStyleSheet(props["main_box_theme"])
+
+        btns = [self.btn_save, self.btn_default, self.btn_back]
+        for b in btns:
+            b.setStyleSheet(props["buttons_theme"])
+
+        for w in range(self.settings_menu_Layout.count()):
+            self.settings_menu_Layout.itemAt(w).widget().setStyleSheet(props["widget_theme"]) 
+
+    
     def save_properties(self):
         self.check_buttons()
-
+        
+        temp_dict = {"main_box_theme" : self.main_box_theme,
+                        "buttons_theme" : self.buttons_theme,
+                        "widget_theme" : self.widget_theme,
+                        "ScheduleTable_theme" : self.ScheduleTable_theme,
+                        "current_theme" : self.btn_theme_checked}
+        
         with open ('settings.json', 'w') as f:
-            temp_dict = {"main_box_theme" : self.main_box_theme,
-                         "buttons_theme" : self.buttons_theme,
-                          "widget_theme" : self.widget_theme}
             json.dump(temp_dict, f)
-            del temp_dict
-        
-    
-    def set_theme(self):
-        with open ("settings.json") as f:
-            temp_dict = json.load(f)
-            self.main_box_theme = temp_dict["main_box_theme"]
-            self.buttons_theme = temp_dict["buttons_theme"]
-            self.widget_theme = temp_dict["widget_theme"]
-
-        
-        self.theme_changed.emit(temp_dict) # Отправляем новые стили
-
+                
+        self.set_properties(temp_dict)
+        self.theme_changed.emit(temp_dict)
         del temp_dict
-
+            
     def check_buttons(self):
         if self.btn_resol_var_1.isChecked():
             pass
@@ -268,7 +281,7 @@ class Settings_Window(QMainWindow):
         if self.btn_window_mode_var_3.isChecked():
             pass
 
-        if self.btn_theme_var_1.isChecked():
+        if self.btn_light_theme.isChecked():
             self.main_box_theme = "background-color: rgb(255, 255, 255);"
             self.buttons_theme = """
                 border-radius: 10px;\n
@@ -278,8 +291,21 @@ class Settings_Window(QMainWindow):
                 background-color: rgb(100, 149, 237);\n
                 color: rgb(255, 255, 255);\n
                 border-radius: 10px;\n"""
+            self.ScheduleTable_theme = """
+            QTableWidget {
+                border-style: solid;
+                border-width: 1px;
+                border-color: none grey none none;
+            }
+            QHeaderView::section {
+                color: rgb(0, 0, 0);
+                background-color: rgb(255, 255, 255);
+                font-weight: bold;
+            }
+            """
+            self.btn_theme_checked = "light"
             
-        if self.btn_theme_var_2.isChecked():
+        if self.btn_dark_theme.isChecked():
             self.main_box_theme = "background-color: rgb(31, 31, 31);"
             self.buttons_theme = """
                 border-radius: 10px;\n
@@ -289,7 +315,19 @@ class Settings_Window(QMainWindow):
                 background-color: rgb(184, 134, 11);\n
                 color: rgb(0, 0, 0);\n
                 border-radius: 10px;\n"""
-           
+            self.ScheduleTable_theme = """
+            QTableWidget {
+                border-style: solid;
+                border-width: 1px;
+                border-color: none grey none none;
+            }
+            QHeaderView::section {
+                color: rgb(0, 0, 0);
+                background-color: rgb(218, 165, 32);
+                font-weight: bold;
+            }
+            """
+            self.btn_theme_checked = "dark"
 
         if self.startup_checkbox.isChecked():
             pass
