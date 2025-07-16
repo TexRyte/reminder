@@ -12,20 +12,16 @@ class MainWindow(QMainWindow):
         self.settings_window = Settings_Window()  # Ссылка на окно настроек
         self.settings_window.switch_to_main.connect(self.show_main_window)  # Связываем сигнал
 
-        self.settings_window.theme_changed.connect(self.update_theme) # обновление настроек главного экрана
+        self.settings_window.settings_changed.connect(self.update_settings) # обновление настроек главного экрана
+        
+        # Сохранённые настройкиs
+        with open("settings.json") as f:
+            settings = json.load(f)
 
         # Создание и найстройка MainWindow
 
         self.setWindowTitle("Напоминалка")
-        # Минимальное разрешение - ноутбучное 1280x720, но могут быть 1920x1080 и 1280x1024
-        QTimer.singleShot(0, lambda: self.setGeometry(0, 31, 1280, 720))
-
-        # Сохранённые настройкиs
-        with open("settings.json") as f:
-            theme_data = json.load(f)
         
-        self.setStyleSheet(theme_data["main_box_theme"])
-
         self.centralwidget = QWidget(self)
         self.setCentralWidget(self.centralwidget)
         self.main_layout = QHBoxLayout(self.centralwidget) # Главный бокс главного экрана
@@ -36,7 +32,6 @@ class MainWindow(QMainWindow):
         self.ScheduleTable = QTableWidget()  
         self.ScheduleTable.setColumnCount(8)
         self.ScheduleTable.setHorizontalHeaderLabels(["Дата/Время","Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"])
-        self.ScheduleTable.setStyleSheet(theme_data["ScheduleTable_theme"])
         self.ScheduleTable.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.ScheduleTable.setMinimumSize(QSize(1000, 720))
         self.ScheduleTable.horizontalHeader().setDefaultSectionSize(125)
@@ -83,12 +78,10 @@ class MainWindow(QMainWindow):
 
         list_of_buttons = [self.btn_add, self.btn_settings, self.btn_quit]
 
-        btn_style = theme_data["buttons_theme"]
-
         for i in list_of_buttons:
             i.setMinimumSize(QSize(230, 30))
             i.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            i.setStyleSheet(btn_style)
+
 
         del list_of_buttons # Он больше не нужен
 
@@ -107,6 +100,8 @@ class MainWindow(QMainWindow):
         self.InteractionBox.setStretch(0, 5)
         self.InteractionBox.setStretch(2, 1)
 
+        self.update_settings(settings)
+
     # Нужно перетащить адаптивность шрифта кнопок в конец инициализации, иначе размер и шрифты начинают глючить
     def resizeEvent(self, event):
         QTimer.singleShot(0, self.update_button_font)
@@ -121,16 +116,53 @@ class MainWindow(QMainWindow):
         self.btn_add.setFont(self.btn_font)
         self.btn_quit.setFont(self.btn_font)
 
-    def update_theme(self, theme_data):
+    def update_settings(self, settings):
         # Применение нового стиля:
-        self.setStyleSheet(theme_data["main_box_theme"])
+        self.setStyleSheet(settings["main_box_theme"])
 
         # Обновление стиля кнопок
         btns = [self.btn_add, self.btn_settings, self.btn_quit]
         for b in btns:
-            b.setStyleSheet(theme_data["buttons_theme"])
+            b.setStyleSheet(settings["buttons_theme"])
         
-        self.ScheduleTable.setStyleSheet(theme_data["ScheduleTable_theme"])
+        self.ScheduleTable.setStyleSheet(settings["ScheduleTable_theme"])
+
+        if self.settings_window.isHidden():
+            self.hide()
+            self.check_window_mode(settings)
+            self.show()
+        else:
+            self.check_window_mode(settings)
+
+
+    def set_fullscreen_mode(self):
+        screen = QApplication.primaryScreen().geometry()
+        self.resize(screen.width(), screen.height())
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)  
+        self.setWindowState(Qt.WindowState.WindowFullScreen)  
+        
+    def set_windowed_mode(self):
+        self.setWindowFlags(Qt.WindowType.Window)  
+        self.setWindowState(Qt.WindowState.WindowNoState)
+        screen = QApplication.primaryScreen().availableGeometry()
+        self.resize(screen.width(), screen.height())
+
+    def set_borderless_mode(self, settings):
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.resize(int(settings["width"]), int(settings["height"]))
+
+
+    def check_window_mode(self, settings):
+        if settings["window_mode"] == "fullscreen":
+            self.set_fullscreen_mode()
+
+        elif settings["window_mode"] == "borderless":
+            self.set_borderless_mode(settings)
+
+        elif settings["window_mode"] == "windowed":            
+            self.set_windowed_mode()
+        
+        self.move(0, 0)
 
     def show_main_window(self):
         self.show() 
