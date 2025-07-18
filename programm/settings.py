@@ -282,39 +282,58 @@ class Settings_Window(QMainWindow):
             self.hide()
             self.check_window_mode()
 
-    def set_fullscreen_mode(self):
-        screen = QApplication.primaryScreen().geometry()
-        self.resize(screen.width(), screen.height())
+    def set_fullscreen_mode(self, screen):
+        self.resize(screen.geometry().width(), screen.geometry().height())
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)  
         self.setWindowState(Qt.WindowState.WindowFullScreen)  
 
-    def set_windowed_mode(self):
+    def set_windowed_mode(self, screen):
         self.setWindowFlags(Qt.WindowType.Window)  
         self.setWindowState(Qt.WindowState.WindowNoState) 
-        screen = QApplication.primaryScreen().availableGeometry()
-        self.resize(screen.width(), screen.height())
+        self.resize(screen.availableGeometry().width(), screen.availableGeometry().height())
 
         # Нужно перенести смещение на последний момент, иначе координаты окна начинают своевольничать
         QTimer.singleShot(0, lambda: self.move(0, 0))
 
-    def set_borderless_mode(self):
+    def set_borderless_mode(self, screen):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.resize(int(self.settings["width"]), int(self.settings["height"]))
+
+        if (
+        int(self.settings["width"]) > screen.geometry().width() or 
+        int(self.settings["height"]) > screen.geometry().height()
+        ):
+            self.btn_window_mode_windowed.click()
+            mbox = QMessageBox(self)
+            mbox.setWindowTitle("Ошибка")
+            mbox.setText("Выбраное разрешение окна больше, чем разрешение вашего монитора.")
+            mbox.setTextFormat(Qt.TextFormat.RichText)
+            if self.settings["current_theme"] == "dark":
+                mbox.setStyleSheet("color: rgb(255, 255, 255); font-size: 14px;")
+            else:
+                mbox.setStyleSheet("color: rgb(0, 0, 0); font-size: 14px;")
+            mbox.exec()
+            self.save_properties()
+        else:
+            self.resize(int(self.settings["width"]), int(self.settings["height"]))
+            
+        QTimer.singleShot(0, lambda: self.move(0, 0))
         
 
+
     def check_window_mode(self):
+        screen = QApplication.primaryScreen()
 
         if self.settings["window_mode"] == "fullscreen":
             self.btn_window_mode_fullscreen.click() # Чтобы сработал .connect
-            self.set_fullscreen_mode()
+            self.set_fullscreen_mode(screen)
 
         elif self.settings["window_mode"] == "borderless":
             self.btn_window_mode_borderless.setChecked(True)
-            self.set_borderless_mode()
+            self.set_borderless_mode(screen)
 
         elif self.settings["window_mode"] == "windowed":   
             self.btn_window_mode_windowed.click() 
-            self.set_windowed_mode()
+            self.set_windowed_mode(screen)
         
     
     def save_properties(self):
@@ -333,9 +352,9 @@ class Settings_Window(QMainWindow):
             json.dump(self.settings, f)
                 
         self.set_properties()
-        print(self.geometry())
         self.settings_changed.emit(self.settings)
-            
+
+
     def check_buttons(self):
         
         if self.btn_resol_var_1.isEnabled():

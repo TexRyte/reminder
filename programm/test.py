@@ -153,6 +153,7 @@ class MainWindow(QMainWindow):
     def set_borderless_mode(self, settings):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.resize(int(settings["width"]), int(settings["height"]))
+        
 
 
     def check_window_mode(self, settings):
@@ -167,6 +168,7 @@ class MainWindow(QMainWindow):
         
 
     def show_main_window(self):
+        QTimer.singleShot(0, lambda: self.move(0, 0))
         self.show() 
 
 
