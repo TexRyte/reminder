@@ -146,6 +146,9 @@ class MainWindow(QMainWindow):
         self.setWindowState(Qt.WindowState.WindowNoState)
         screen = QApplication.primaryScreen().availableGeometry()
         self.resize(screen.width(), screen.height())
+        
+        # Нужно перенести смещение на последний момент, иначе координаты окна начинают своевольничать
+        QTimer.singleShot(0, lambda: self.move(0, 0))
 
     def set_borderless_mode(self, settings):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
@@ -162,7 +165,6 @@ class MainWindow(QMainWindow):
         elif settings["window_mode"] == "windowed":            
             self.set_windowed_mode()
         
-        self.move(0, 0)
 
     def show_main_window(self):
         self.show() 

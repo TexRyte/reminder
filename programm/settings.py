@@ -279,6 +279,7 @@ class Settings_Window(QMainWindow):
             self.check_window_mode()
             self.show()
         else:
+            self.hide()
             self.check_window_mode()
 
     def set_fullscreen_mode(self):
@@ -293,12 +294,16 @@ class Settings_Window(QMainWindow):
         screen = QApplication.primaryScreen().availableGeometry()
         self.resize(screen.width(), screen.height())
 
+        # Нужно перенести смещение на последний момент, иначе координаты окна начинают своевольничать
+        QTimer.singleShot(0, lambda: self.move(0, 0))
+
     def set_borderless_mode(self):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.resize(int(self.settings["width"]), int(self.settings["height"]))
         
 
     def check_window_mode(self):
+
         if self.settings["window_mode"] == "fullscreen":
             self.btn_window_mode_fullscreen.click() # Чтобы сработал .connect
             self.set_fullscreen_mode()
@@ -311,7 +316,6 @@ class Settings_Window(QMainWindow):
             self.btn_window_mode_windowed.click() 
             self.set_windowed_mode()
         
-        self.move(0, 0)
     
     def save_properties(self):
         self.check_buttons()
@@ -329,6 +333,7 @@ class Settings_Window(QMainWindow):
             json.dump(self.settings, f)
                 
         self.set_properties()
+        print(self.geometry())
         self.settings_changed.emit(self.settings)
             
     def check_buttons(self):
