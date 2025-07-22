@@ -1,9 +1,9 @@
-import sys
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
-
 from settings import *
+import sys
+import json
 
 class MainWindow(QMainWindow):
 
@@ -14,8 +14,16 @@ class MainWindow(QMainWindow):
 
         self.settings_window.settings_changed.connect(self.update_settings) # обновление настроек главного экрана
         
-        # Сохранённые настройкиs
-        with open("settings.json") as f:
+        # Сохранённые настройки
+        self.settings_path = self.user_settings_path()
+
+        if not os.path.exists(self.settings_path):
+            # копируем шаблон из ресурсов
+            with open(self.resource_path("settings.json"), "r") as src:
+                with open(self.settings_path, "w") as dst:
+                    dst.write(src.read())
+
+        with open(self.settings_path) as f:
             settings = json.load(f)
 
         # Создание и найстройка MainWindow
@@ -101,6 +109,14 @@ class MainWindow(QMainWindow):
         self.InteractionBox.setStretch(2, 1)
 
         self.update_settings(settings)
+
+    def resource_path(self, filename):
+            if hasattr(sys, '_MEIPASS'):
+                return os.path.join(sys._MEIPASS, filename)
+            return os.path.join(os.path.abspath("."), filename)
+
+    def user_settings_path(self):
+        return os.path.join(os.path.dirname(sys.executable if hasattr(sys, 'frozen') else __file__), "settings.json")
 
     # Нужно перетащить адаптивность шрифта кнопок в конец инициализации, иначе размер и шрифты начинают глючить
     def resizeEvent(self, event):

@@ -1,3 +1,5 @@
+import winreg
+import os
 import sys
 import json
 from PySide6.QtWidgets import *
@@ -14,7 +16,15 @@ class Settings_Window(QMainWindow):
         super().__init__()
 
         # Настройки
-        with open ("settings.json") as f:
+        self.settings_path = self.user_settings_path()
+
+        if not os.path.exists(self.settings_path):
+            # копируем шаблон из ресурсов
+            with open(self.resource_path("settings.json"), "r") as src:
+                with open(self.settings_path, "w") as dst:
+                    dst.write(src.read())
+
+        with open (self.settings_path) as f:
             self.settings = json.load(f)
 
         # Создание и настройка Settings_Window
@@ -115,6 +125,8 @@ class Settings_Window(QMainWindow):
 
         self.startup_checkbox = QCheckBox()
         self.startup_layout.addWidget(self.startup_checkbox, alignment=Qt.AlignCenter)
+
+        self.startup_checkbox.setChecked(self.is_autorun_enabled())
 
             # Настраиваем вид settings_menu_Layout
 
@@ -231,11 +243,61 @@ class Settings_Window(QMainWindow):
         for widget in self.settings_menu_Widget.findChildren(QWidget):
             widget.setFont(font)
 
+    def resource_path(self, filename):
+        if hasattr(sys, '_MEIPASS'):
+            return os.path.join(sys._MEIPASS, filename)
+        return os.path.join(os.path.abspath("."), filename)
+
+    def user_settings_path(self):
+        return os.path.join(os.path.dirname(sys.executable if hasattr(sys, 'frozen') else __file__), "settings.json")
+
     
     # Возврат к главному окну
     def back(self):
         self.close()  
         self.switch_to_main.emit()  # Отправляем сигнал в MainWindow
+    
+    def set_default(self):
+        self.btn_resol_var_1.setChecked(True)
+        self.btn_light_theme.setChecked(True)
+        self.btn_window_mode_windowed.setChecked(True)
+        self.startup_checkbox.setChecked(False)
+        self.save_properties()
+
+    def get_autorun_key(self):
+        return winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            0,
+            winreg.KEY_ALL_ACCESS
+        )
+
+    def enable_autorun(self, app_name="ReminderApp"):
+        key = self.get_autorun_key()
+        exe_path = sys.executable
+        command = f'"{exe_path}"'
+
+        winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, command)
+        winreg.CloseKey(key)
+
+    def disable_autorun(self, app_name="ReminderApp"):
+        try:
+            key = self.get_autorun_key()
+            winreg.DeleteValue(key, app_name)
+            winreg.CloseKey(key)
+        except FileNotFoundError:
+            pass  # Уже удалено
+
+    def is_autorun_enabled(self, app_name="ReminderApp"):
+        try:
+            key = self.get_autorun_key()
+            winreg.QueryValueEx(key, app_name)
+            winreg.CloseKey(key)
+            return True
+        except FileNotFoundError:
+            return False
+
+    
 
     # Разрешение нужно только в случае, если окно borderless
     def resol_disable(self):
@@ -253,12 +315,6 @@ class Settings_Window(QMainWindow):
         
         self.settings_menu_Layout.itemAt(0).widget().setStyleSheet(self.settings["widget_theme"])
         
-    def set_default(self):
-        self.btn_resol_var_1.setChecked(True)
-        self.btn_light_theme.setChecked(True)
-        self.btn_window_mode_windowed.setChecked(True)
-        self.startup_checkbox.setChecked(False)
-        self.save_properties()
     
     # Применение настроек
     def set_properties(self):
@@ -348,7 +404,7 @@ class Settings_Window(QMainWindow):
                         "height" : self.resol_h,
                         "window_mode" : self.window_mode}
         
-        with open ('settings.json', 'w') as f:
+        with open (self.settings_path, 'w') as f:
             json.dump(self.settings, f)
                 
         self.set_properties()
@@ -429,6 +485,9 @@ class Settings_Window(QMainWindow):
             self.btn_theme_checked = "dark"
 
         if self.startup_checkbox.isChecked():
-            pass
+            self.enable_autorun()
+        else:
+            self.disable_autorun()
+
 
 
