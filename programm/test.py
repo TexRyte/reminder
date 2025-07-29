@@ -13,7 +13,24 @@ class MainWindow(QMainWindow):
         self.settings_window.switch_to_main.connect(self.show_main_window)  # Связываем сигнал
 
         self.settings_window.settings_changed.connect(self.update_settings) # обновление настроек главного экрана
+                
+        tray_icon = QSystemTrayIcon(QIcon("tray_icon.ico"), parent=self)
+
+        tray_menu = QMenu()
+        show_action = QAction("Открыть", tray_menu)
+        quit_action = QAction("Выход", tray_menu)
+
+        show_action.triggered.connect(self.show)
+        quit_action.triggered.connect(QApplication.quit)
+
+        tray_menu.addAction(show_action)
+        tray_menu.addAction(quit_action)
+
+        tray_icon.setContextMenu(tray_menu)
+
+        tray_icon.show()
         
+
         # Сохранённые настройки
         self.settings_path = self.user_settings_path()
 
@@ -81,7 +98,7 @@ class MainWindow(QMainWindow):
         self.btn_settings = QPushButton("Настройки")
         self.btn_quit = QPushButton("Выйти")
 
-        self.btn_quit.clicked.connect(self.close)
+        self.btn_quit.clicked.connect(self.hide)
         self.btn_settings.clicked.connect(self.go_settings)
 
         list_of_buttons = [self.btn_add, self.btn_settings, self.btn_quit]
@@ -109,6 +126,7 @@ class MainWindow(QMainWindow):
         self.InteractionBox.setStretch(2, 1)
 
         self.update_settings(settings)
+        
 
     def resource_path(self, filename):
             if hasattr(sys, '_MEIPASS'):
@@ -121,6 +139,10 @@ class MainWindow(QMainWindow):
     # Нужно перетащить адаптивность шрифта кнопок в конец инициализации, иначе размер и шрифты начинают глючить
     def resizeEvent(self, event):
         QTimer.singleShot(0, self.update_button_font)
+
+    def closeEvent(self, event):
+        event.ignore()
+        self.hide()
 
     # Создание адаптивности шрифта кнопок
     def update_button_font(self):
@@ -212,6 +234,7 @@ class MainWindow(QMainWindow):
 
 def start():
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
 
     window = MainWindow()
     window.show()
