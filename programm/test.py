@@ -1,9 +1,9 @@
-import sys
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
-
 from settings import *
+import sys
+import json
 
 class MainWindow(QMainWindow):
 
@@ -12,16 +12,41 @@ class MainWindow(QMainWindow):
         self.settings_window = Settings_Window()  # Ссылка на окно настроек
         self.settings_window.switch_to_main.connect(self.show_main_window)  # Связываем сигнал
 
-        self.settings_window.theme_changed.connect(self.update_theme) # обновление настроек главного экрана
+        self.settings_window.settings_changed.connect(self.update_settings) # обновление настроек главного экрана
+                
+        tray_icon = QSystemTrayIcon(QIcon("tray_icon.ico"), parent=self)
+
+        tray_menu = QMenu()
+        show_action = QAction("Открыть", tray_menu)
+        quit_action = QAction("Выход", tray_menu)
+
+        show_action.triggered.connect(self.show)
+        quit_action.triggered.connect(QApplication.quit)
+
+        tray_menu.addAction(show_action)
+        tray_menu.addAction(quit_action)
+
+        tray_icon.setContextMenu(tray_menu)
+
+        tray_icon.show()
+        
+
+        # Сохранённые настройки
+        self.settings_path = self.user_settings_path()
+
+        if not os.path.exists(self.settings_path):
+            # копируем шаблон из ресурсов
+            with open(self.resource_path("settings.json"), "r") as src:
+                with open(self.settings_path, "w") as dst:
+                    dst.write(src.read())
+
+        with open(self.settings_path) as f:
+            settings = json.load(f)
 
         # Создание и найстройка MainWindow
 
         self.setWindowTitle("Напоминалка")
-        # Минимальное разрешение - ноутбучное 1280x720, но могут быть 1920x1080 и 1280x1024
-        QTimer.singleShot(0, lambda: self.setGeometry(0, 31, 1280, 720))
         
-        self.setStyleSheet("background-color: rgb(255, 255, 255);")
-
         self.centralwidget = QWidget(self)
         self.setCentralWidget(self.centralwidget)
         self.main_layout = QHBoxLayout(self.centralwidget) # Главный бокс главного экрана
@@ -32,15 +57,10 @@ class MainWindow(QMainWindow):
         self.ScheduleTable = QTableWidget()  
         self.ScheduleTable.setColumnCount(8)
         self.ScheduleTable.setHorizontalHeaderLabels(["Дата/Время","Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"])
-        self.ScheduleTable.setStyleSheet(
-            "border-style: solid;\n"
-            "border-width: 1px;\n"
-            "border-color: none grey none none;" # Надо, чтобы было видно границу между рассписанием и блоком слева 
-            )
         self.ScheduleTable.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.ScheduleTable.setMinimumSize(QSize(1000, 720))
         self.ScheduleTable.horizontalHeader().setDefaultSectionSize(125)
-        self.ScheduleTable.horizontalHeader().setFont(QFont("Century", 12))
+        self.ScheduleTable.horizontalHeader().setFont(QFont("Arial", 12))
 
         # Создание InteractionBox
 
@@ -78,23 +98,15 @@ class MainWindow(QMainWindow):
         self.btn_settings = QPushButton("Настройки")
         self.btn_quit = QPushButton("Выйти")
 
-        self.btn_quit.clicked.connect(self.close)
+        self.btn_quit.clicked.connect(self.hide)
         self.btn_settings.clicked.connect(self.go_settings)
 
         list_of_buttons = [self.btn_add, self.btn_settings, self.btn_quit]
 
-        btn_style = """
-        QPushButton {
-            border-radius: 10px;
-            background-color: rgb(100, 149, 237);
-            color: rgb(255, 255, 255);
-        }
-        """
-
         for i in list_of_buttons:
             i.setMinimumSize(QSize(230, 30))
             i.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            i.setStyleSheet(btn_style)
+
 
         del list_of_buttons # Он больше не нужен
 
@@ -113,9 +125,24 @@ class MainWindow(QMainWindow):
         self.InteractionBox.setStretch(0, 5)
         self.InteractionBox.setStretch(2, 1)
 
+        self.update_settings(settings)
+        
+
+    def resource_path(self, filename):
+            if hasattr(sys, '_MEIPASS'):
+                return os.path.join(sys._MEIPASS, filename)
+            return os.path.join(os.path.abspath("."), filename)
+
+    def user_settings_path(self):
+        return os.path.join(os.path.dirname(sys.executable if hasattr(sys, 'frozen') else __file__), "settings.json")
+
     # Нужно перетащить адаптивность шрифта кнопок в конец инициализации, иначе размер и шрифты начинают глючить
     def resizeEvent(self, event):
         QTimer.singleShot(0, self.update_button_font)
+
+    def closeEvent(self, event):
+        event.ignore()
+        self.hide()
 
     # Создание адаптивности шрифта кнопок
     def update_button_font(self):
@@ -127,12 +154,59 @@ class MainWindow(QMainWindow):
         self.btn_add.setFont(self.btn_font)
         self.btn_quit.setFont(self.btn_font)
 
-    def update_theme(self, theme_data):
-        self.main_theme = theme_data["main_box_theme"]
-        self.buttons_theme = theme_data["buttons_theme"]
-        self.widget_theme = theme_data["widget_theme"]
+    def update_settings(self, settings):
+        # Применение нового стиля:
+        self.setStyleSheet(settings["main_box_theme"])
+
+        # Обновление стиля кнопок
+        btns = [self.btn_add, self.btn_settings, self.btn_quit]
+        for b in btns:
+            b.setStyleSheet(settings["buttons_theme"])
+        
+        self.ScheduleTable.setStyleSheet(settings["ScheduleTable_theme"])
+
+        if self.settings_window.isHidden():
+            self.hide()
+            self.check_window_mode(settings)
+            self.show()
+        else:
+            self.check_window_mode(settings)
+
+
+    def set_fullscreen_mode(self):
+        screen = QApplication.primaryScreen().geometry()
+        self.resize(screen.width(), screen.height())
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)  
+        self.setWindowState(Qt.WindowState.WindowFullScreen)  
+        
+    def set_windowed_mode(self):
+        self.setWindowFlags(Qt.WindowType.Window)  
+        self.setWindowState(Qt.WindowState.WindowNoState)
+        screen = QApplication.primaryScreen().availableGeometry()
+        self.resize(screen.width(), screen.height())
+        
+        # Нужно перенести смещение на последний момент, иначе координаты окна начинают своевольничать
+        QTimer.singleShot(0, lambda: self.move(0, 0))
+
+    def set_borderless_mode(self, settings):
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.resize(int(settings["width"]), int(settings["height"]))
+        
+
+
+    def check_window_mode(self, settings):
+        if settings["window_mode"] == "fullscreen":
+            self.set_fullscreen_mode()
+
+        elif settings["window_mode"] == "borderless":
+            self.set_borderless_mode(settings)
+
+        elif settings["window_mode"] == "windowed":            
+            self.set_windowed_mode()
+        
 
     def show_main_window(self):
+        QTimer.singleShot(0, lambda: self.move(0, 0))
         self.show() 
 
 
@@ -160,6 +234,7 @@ class MainWindow(QMainWindow):
 
 def start():
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
 
     window = MainWindow()
     window.show()

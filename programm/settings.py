@@ -1,3 +1,5 @@
+import winreg
+import os
 import sys
 import json
 from PySide6.QtWidgets import *
@@ -8,23 +10,27 @@ from PySide6.QtGui import *
 
 class Settings_Window(QMainWindow):
     switch_to_main = Signal()  # Сигнал для возврата в главное окно
-    theme_changed = Signal(dict)  # Сигнал для передачи темы
+    settings_changed = Signal(dict)  # Сигнал для передачи темы
 
     def __init__(self):
         super().__init__()
 
         # Настройки
-        self.set_theme()
-    
-        self.first_resize_done = False  # Нужен флаг, ибо при запуске окно меняет размер дважды
-        
+        self.settings_path = self.user_settings_path()
+
+        if not os.path.exists(self.settings_path):
+            # копируем шаблон из ресурсов
+            with open(self.resource_path("settings.json"), "r") as src:
+                with open(self.settings_path, "w") as dst:
+                    dst.write(src.read())
+
+        with open (self.settings_path) as f:
+            self.settings = json.load(f)
 
         # Создание и настройка Settings_Window
 
         self.setWindowTitle("Настройки")
-        QTimer.singleShot(0, lambda: self.setGeometry(0, 31, 1280, 720))
-        
-        self.setStyleSheet(self.main_box_theme)
+
 
         self.centralwidget = QWidget(self)
         self.setCentralWidget(self.centralwidget)
@@ -50,39 +56,67 @@ class Settings_Window(QMainWindow):
             self.resol_buttons_group.addButton(list_of_buttons[i])
             self.resol_layout.addWidget(list_of_buttons[i], i, 1, 1, 1, alignment=Qt.AlignCenter)
 
+        
+        if self.settings["height"] == "720":
+            self.btn_resol_var_1.setChecked(True)
+
+        elif self.settings["height"] == "1024":
+            self.btn_resol_var_2.setChecked(True)
+
+        elif self.settings["height"] == "1080":            
+            self.btn_resol_var_3.setChecked(True) 
+
             # Режим окна 
 
         self.window_mode_layout = QGridLayout()
 
-        self.btn_window_mode_var_1 = QRadioButton("Полноэкранный")
-        self.btn_window_mode_var_2 = QRadioButton("Окно без рамки")
-        self.btn_window_mode_var_3 = QRadioButton("Оконный")
+        self.btn_window_mode_fullscreen = QRadioButton("Полноэкранный")
+        self.btn_window_mode_borderless = QRadioButton("Окно без рамки")
+        self.btn_window_mode_windowed = QRadioButton("Оконный")
+
+        self.btn_window_mode_fullscreen.clicked.connect(self.resol_disable)
+        self.btn_window_mode_borderless.clicked.connect(self.resol_enable)
+        self.btn_window_mode_windowed.clicked.connect(self.resol_disable)
         
         self.window_mode_buttons_group = QButtonGroup()
         self.window_mode_layout.addWidget(QLabel("Режим окна"), 0, 0, 3, 1, alignment=Qt.AlignCenter)
 
-        list_of_buttons = [self.btn_window_mode_var_1, self.btn_window_mode_var_2, self.btn_window_mode_var_3]
+        list_of_buttons = [self.btn_window_mode_fullscreen, self.btn_window_mode_borderless, self.btn_window_mode_windowed]
 
         for i in range(3):
             self.window_mode_buttons_group.addButton(list_of_buttons[i])
             self.window_mode_layout.addWidget(list_of_buttons[i], i, 1, 1, 1, alignment=Qt.AlignCenter)
 
+        if self.settings["window_mode"] == "windowed":
+            self.btn_window_mode_windowed.setChecked(True)
+
+        elif self.settings["window_mode"] == "fullscreen":
+            self.btn_window_mode_fullscreen.setChecked(True)
+
+        elif self.settings["window_mode"] == "borderless":            
+            self.btn_window_mode_borderless.setChecked(True) 
             # Тема
         
         self.theme_layout = QGridLayout()
-        self.btn_theme_var_1 = QRadioButton("Светлая")
-        self.btn_theme_var_2 = QRadioButton("Тёмная")
+        self.btn_light_theme = QRadioButton("Светлая")
+        self.btn_dark_theme = QRadioButton("Тёмная")
 
         self.theme_buttons_group = QButtonGroup()
         self.theme_layout.addWidget(QLabel("Тема"), 0, 0, 2, 1, alignment=Qt.AlignCenter)
 
-        list_of_buttons = [self.btn_theme_var_1, self.btn_theme_var_2]
+        list_of_buttons = [self.btn_light_theme, self.btn_dark_theme]
 
         for i in range(2):
             self.theme_buttons_group.addButton(list_of_buttons[i])
             self.theme_layout.addWidget(list_of_buttons[i], i, 1, 1, 1, alignment=Qt.AlignCenter)
 
         del list_of_buttons
+
+        if self.settings["current_theme"] == "light":
+            self.btn_light_theme.setChecked(True)
+
+        elif self.settings["current_theme"] == "dark":
+            self.btn_dark_theme.setChecked(True)
 
             # Автозагрузка 
         
@@ -91,6 +125,8 @@ class Settings_Window(QMainWindow):
 
         self.startup_checkbox = QCheckBox()
         self.startup_layout.addWidget(self.startup_checkbox, alignment=Qt.AlignCenter)
+
+        self.startup_checkbox.setChecked(self.is_autorun_enabled())
 
             # Настраиваем вид settings_menu_Layout
 
@@ -106,7 +142,6 @@ class Settings_Window(QMainWindow):
 
         for i in list_of_layouts:
             temp_widget = QWidget()
-            temp_widget.setStyleSheet(self.widget_theme)
 
             temp_widget.setLayout(i)
             temp_widget.setMinimumSize(320, 200)
@@ -159,13 +194,11 @@ class Settings_Window(QMainWindow):
         self.btn_default = QPushButton("По умолчанию")
         self.btn_save = QPushButton("Сохранить")
 
-        btn_style = self.buttons_theme
         list_of_buttons = [self.btn_back, self.btn_default, self.btn_save]
 
         for i in list_of_buttons:
             i.setMinimumSize(QSize(230, 50))
             i.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            i.setStyleSheet(btn_style)
 
         del list_of_buttons
 
@@ -179,18 +212,15 @@ class Settings_Window(QMainWindow):
         button_layout.addWidget(self.btn_default)
         button_layout.addWidget(self.btn_save)
 
+        self.set_properties()
+
     # Перетаскивание адаптивности шрифта кнопок в конец инициализации
     def resizeEvent(self, event):
-        # Проверка не даёт второй раз изменить размер окна, если то только что запустилось
-        if not self.first_resize_done:
-            self.first_resize_done = True
-            QTimer.singleShot(0, self.update_button_font)
-            QTimer.singleShot(0, self.update_menu_font)
-
-            return 
         
         QTimer.singleShot(0, self.update_button_font)
         QTimer.singleShot(0, self.update_menu_font)
+
+
 
     # Создание адаптивности шрифта кнопок нижней панели
     def update_button_font(self):
@@ -213,62 +243,200 @@ class Settings_Window(QMainWindow):
         for widget in self.settings_menu_Widget.findChildren(QWidget):
             widget.setFont(font)
 
+    def resource_path(self, filename):
+        if hasattr(sys, '_MEIPASS'):
+            return os.path.join(sys._MEIPASS, filename)
+        return os.path.join(os.path.abspath("."), filename)
+
+    def user_settings_path(self):
+        return os.path.join(os.path.dirname(sys.executable if hasattr(sys, 'frozen') else __file__), "settings.json")
+
     
     # Возврат к главному окну
     def back(self):
         self.close()  
         self.switch_to_main.emit()  # Отправляем сигнал в MainWindow
-
+    
     def set_default(self):
-        self.main_box_theme = "background-color: rgb(255, 255, 255);"
-        self.buttons_theme = """
-            border-radius: 10px;\n
-            background-color: rgb(100, 149, 237);\n
-            color: rgb(255, 255, 255);"""
-        self.widget_theme = """
-            background-color: rgb(100, 149, 237);\n
-            color: rgb(255, 255, 255);\n
-            border-radius: 10px;\n"""
-        
-    def save_properties(self):
-        self.check_buttons()
+        self.btn_resol_var_1.setChecked(True)
+        self.btn_light_theme.setChecked(True)
+        self.btn_window_mode_windowed.setChecked(True)
+        self.startup_checkbox.setChecked(False)
+        self.save_properties()
 
-        with open ('settings.json', 'w') as f:
-            temp_dict = {"main_box_theme" : self.main_box_theme,
-                         "buttons_theme" : self.buttons_theme,
-                          "widget_theme" : self.widget_theme}
-            json.dump(temp_dict, f)
-            del temp_dict
+    def get_autorun_key(self):
+        return winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            0,
+            winreg.KEY_ALL_ACCESS
+        )
+
+    def enable_autorun(self, app_name="ReminderApp"):
+        key = self.get_autorun_key()
+        exe_path = sys.executable
+        command = f'"{exe_path}"'
+
+        winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, command)
+        winreg.CloseKey(key)
+
+    def disable_autorun(self, app_name="ReminderApp"):
+        try:
+            key = self.get_autorun_key()
+            winreg.DeleteValue(key, app_name)
+            winreg.CloseKey(key)
+        except FileNotFoundError:
+            pass  # Уже удалено
+
+    def is_autorun_enabled(self, app_name="ReminderApp"):
+        try:
+            key = self.get_autorun_key()
+            winreg.QueryValueEx(key, app_name)
+            winreg.CloseKey(key)
+            return True
+        except FileNotFoundError:
+            return False
+
+    
+
+    # Разрешение нужно только в случае, если окно borderless
+    def resol_disable(self):
+        for btn in self.resol_buttons_group.buttons():
+            btn.setEnabled(False)
+    
+        self.settings_menu_Layout.itemAt(0).widget().setStyleSheet("""
+            background-color: rgb(169, 169, 169);\n
+            color: rgb(0, 0, 0);\n
+            border-radius: 10px;\n""")
+   
+    def resol_enable(self):
+        for btn in self.resol_buttons_group.buttons():
+            btn.setEnabled(True)
+        
+        self.settings_menu_Layout.itemAt(0).widget().setStyleSheet(self.settings["widget_theme"])
         
     
-    def set_theme(self):
-        with open ("settings.json") as f:
-            temp_dict = json.load(f)
-            self.main_box_theme = temp_dict["main_box_theme"]
-            self.buttons_theme = temp_dict["buttons_theme"]
-            self.widget_theme = temp_dict["widget_theme"]
+    # Применение настроек
+    def set_properties(self):
+        self.setStyleSheet(self.settings["main_box_theme"])
 
+        btns = [self.btn_save, self.btn_default, self.btn_back]
+        for b in btns:
+            b.setStyleSheet(self.settings["buttons_theme"])
+
+        for w in range(self.settings_menu_Layout.count()):
+            self.settings_menu_Layout.itemAt(w).widget().setStyleSheet(self.settings["widget_theme"]) 
+
+        if not self.btn_resol_var_1.isEnabled():
+            self.resol_disable()
+
+        if not self.isHidden():
+            self.hide()
+            self.check_window_mode()
+            self.show()
+        else:
+            self.hide()
+            self.check_window_mode()
+
+    def set_fullscreen_mode(self, screen):
+        self.resize(screen.geometry().width(), screen.geometry().height())
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)  
+        self.setWindowState(Qt.WindowState.WindowFullScreen)  
+
+    def set_windowed_mode(self, screen):
+        self.setWindowFlags(Qt.WindowType.Window)  
+        self.setWindowState(Qt.WindowState.WindowNoState) 
+        self.resize(screen.availableGeometry().width(), screen.availableGeometry().height())
+
+        # Нужно перенести смещение на последний момент, иначе координаты окна начинают своевольничать
+        QTimer.singleShot(0, lambda: self.move(0, 0))
+
+    def set_borderless_mode(self, screen):
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+
+        if (
+        int(self.settings["width"]) > screen.geometry().width() or 
+        int(self.settings["height"]) > screen.geometry().height()
+        ):
+            self.btn_window_mode_windowed.click()
+            mbox = QMessageBox(self)
+            mbox.setWindowTitle("Ошибка")
+            mbox.setText("Выбраное разрешение окна больше, чем разрешение вашего монитора.")
+            mbox.setTextFormat(Qt.TextFormat.RichText)
+            if self.settings["current_theme"] == "dark":
+                mbox.setStyleSheet("color: rgb(255, 255, 255); font-size: 14px;")
+            else:
+                mbox.setStyleSheet("color: rgb(0, 0, 0); font-size: 14px;")
+            mbox.exec()
+            self.save_properties()
+        else:
+            self.resize(int(self.settings["width"]), int(self.settings["height"]))
+            
+        QTimer.singleShot(0, lambda: self.move(0, 0))
         
-        self.theme_changed.emit(temp_dict) # Отправляем новые стили
 
-        del temp_dict
+
+    def check_window_mode(self):
+        screen = QApplication.primaryScreen()
+
+        if self.settings["window_mode"] == "fullscreen":
+            self.btn_window_mode_fullscreen.click() # Чтобы сработал .connect
+            self.set_fullscreen_mode(screen)
+
+        elif self.settings["window_mode"] == "borderless":
+            self.btn_window_mode_borderless.setChecked(True)
+            self.set_borderless_mode(screen)
+
+        elif self.settings["window_mode"] == "windowed":   
+            self.btn_window_mode_windowed.click() 
+            self.set_windowed_mode(screen)
+        
+    
+    def save_properties(self):
+        self.check_buttons()
+        
+        self.settings = {"main_box_theme" : self.main_box_theme,
+                        "buttons_theme" : self.buttons_theme,
+                        "widget_theme" : self.widget_theme,
+                        "ScheduleTable_theme" : self.ScheduleTable_theme,
+                        "current_theme" : self.btn_theme_checked,
+                        "width" : self.resol_w,
+                        "height" : self.resol_h,
+                        "window_mode" : self.window_mode}
+        
+        with open (self.settings_path, 'w') as f:
+            json.dump(self.settings, f)
+                
+        self.set_properties()
+        self.settings_changed.emit(self.settings)
+
 
     def check_buttons(self):
-        if self.btn_resol_var_1.isChecked():
-            pass
-        if self.btn_resol_var_2.isChecked():
-            pass
-        if self.btn_resol_var_3.isChecked():
-            pass
+        
+        if self.btn_resol_var_1.isEnabled():
+            if self.btn_resol_var_1.isChecked():
+                self.resol_w = "1280"
+                self.resol_h = "720"
+            elif self.btn_resol_var_2.isChecked():
+                self.resol_w = "1280"
+                self.resol_h = "1024"
+            elif self.btn_resol_var_3.isChecked():
+                self.resol_w = "1920"
+                self.resol_h = "1080"
+        else:
+            self.resol_w = "1280"
+            self.resol_h = "720"
 
-        if self.btn_window_mode_var_1.isChecked():
-            pass
-        if self.btn_window_mode_var_2.isChecked():
-            pass
-        if self.btn_window_mode_var_3.isChecked():
-            pass
 
-        if self.btn_theme_var_1.isChecked():
+        if self.btn_window_mode_fullscreen.isChecked():
+            self.window_mode = "fullscreen"
+        elif self.btn_window_mode_borderless.isChecked():
+            self.window_mode = "borderless"
+        elif self.btn_window_mode_windowed.isChecked():
+            self.window_mode = "windowed"
+
+
+        if self.btn_light_theme.isChecked():
             self.main_box_theme = "background-color: rgb(255, 255, 255);"
             self.buttons_theme = """
                 border-radius: 10px;\n
@@ -278,8 +446,21 @@ class Settings_Window(QMainWindow):
                 background-color: rgb(100, 149, 237);\n
                 color: rgb(255, 255, 255);\n
                 border-radius: 10px;\n"""
+            self.ScheduleTable_theme = """
+            QTableWidget {
+                border-style: solid;
+                border-width: 1px;
+                border-color: none grey none none;
+            }
+            QHeaderView::section {
+                color: rgb(0, 0, 0);
+                background-color: rgb(255, 255, 255);
+                font-weight: bold;
+            }
+            """
+            self.btn_theme_checked = "light"
             
-        if self.btn_theme_var_2.isChecked():
+        if self.btn_dark_theme.isChecked():
             self.main_box_theme = "background-color: rgb(31, 31, 31);"
             self.buttons_theme = """
                 border-radius: 10px;\n
@@ -289,9 +470,24 @@ class Settings_Window(QMainWindow):
                 background-color: rgb(184, 134, 11);\n
                 color: rgb(0, 0, 0);\n
                 border-radius: 10px;\n"""
-           
+            self.ScheduleTable_theme = """
+            QTableWidget {
+                border-style: solid;
+                border-width: 1px;
+                border-color: none grey none none;
+            }
+            QHeaderView::section {
+                color: rgb(0, 0, 0);
+                background-color: rgb(218, 165, 32);
+                font-weight: bold;
+            }
+            """
+            self.btn_theme_checked = "dark"
 
         if self.startup_checkbox.isChecked():
-            pass
+            self.enable_autorun()
+        else:
+            self.disable_autorun()
+
 
 
