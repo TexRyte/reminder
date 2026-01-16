@@ -313,7 +313,7 @@ class Settings_Window(QMainWindow):
         for btn in self.resol_buttons_group.buttons():
             btn.setEnabled(True)
         
-        self.settings_menu_Layout.itemAt(0).widget().setStyleSheet(self.settings["widget_theme"])
+        self.settings_menu_Layout.itemAt(0).widget().setStyleSheet(self.settings["settings_widget_theme"])
         
     
     # Применение настроек
@@ -325,7 +325,7 @@ class Settings_Window(QMainWindow):
             b.setStyleSheet(self.settings["buttons_theme"])
 
         for w in range(self.settings_menu_Layout.count()):
-            self.settings_menu_Layout.itemAt(w).widget().setStyleSheet(self.settings["widget_theme"]) 
+            self.settings_menu_Layout.itemAt(w).widget().setStyleSheet(self.settings["settings_widget_theme"]) 
 
         if not self.btn_resol_var_1.isEnabled():
             self.resol_disable()
@@ -397,12 +397,14 @@ class Settings_Window(QMainWindow):
         
         self.settings = {"main_box_theme" : self.main_box_theme,
                         "buttons_theme" : self.buttons_theme,
-                        "widget_theme" : self.widget_theme,
+                        "settings_widget_theme" : self.settings_widget_theme,
                         "ScheduleTable_theme" : self.ScheduleTable_theme,
                         "current_theme" : self.btn_theme_checked,
                         "width" : self.resol_w,
                         "height" : self.resol_h,
-                        "window_mode" : self.window_mode}
+                        "window_mode" : self.window_mode,
+                        "remind_widget_theme" : self.remind_widget_theme,
+                        "QDate_edit" : self.QDate_edit}
         
         with open (self.settings_path, 'w') as f:
             json.dump(self.settings, f)
@@ -442,7 +444,7 @@ class Settings_Window(QMainWindow):
                 border-radius: 10px;\n
                 background-color: rgb(100, 149, 237);\n
                 color: rgb(255, 255, 255);"""
-            self.widget_theme = """
+            self.settings_widget_theme = """
                 background-color: rgb(100, 149, 237);\n
                 color: rgb(255, 255, 255);\n
                 border-radius: 10px;\n"""
@@ -458,6 +460,29 @@ class Settings_Window(QMainWindow):
                 font-weight: bold;
             }
             """
+            self.remind_widget_theme = """
+                border: 2px solid rgb(100, 149, 237);
+            """
+            self.QDate_edit = """
+            QDateEdit {
+                border: 2px solid rgb(100, 149, 237);
+            }
+
+            QCalendarWidget QTableView {
+                selection-background-color: #00aaff;  /* Цвет выделения */
+            }
+
+            QCalendarWidget QWidget#qt_calendar_navigationbar { 
+                background-color: #444; 
+                color: white;
+            }
+
+            QCalendarWidget QTableView QHeaderView::section {
+                background-color: #222;  /* Цвет строки дней недели */
+                color: yellow;           /* Цвет текста */
+                font-weight: bold;
+            }
+            """
             self.btn_theme_checked = "light"
             
         if self.btn_dark_theme.isChecked():
@@ -466,7 +491,7 @@ class Settings_Window(QMainWindow):
                 border-radius: 10px;\n
                 background-color: rgb(184, 134, 11);\n
                 color: rgb(0, 0, 0);"""
-            self.widget_theme = """
+            self.settings_widget_theme = """
                 background-color: rgb(184, 134, 11);\n
                 color: rgb(0, 0, 0);\n
                 border-radius: 10px;\n"""
@@ -479,6 +504,31 @@ class Settings_Window(QMainWindow):
             QHeaderView::section {
                 color: rgb(0, 0, 0);
                 background-color: rgb(218, 165, 32);
+                font-weight: bold;
+            }
+            """
+            self.remind_widget_theme = """
+                color: rgb(230, 230, 230); \n
+                border: 2px solid rgb(184, 134, 11);
+            """
+            self.QDate_edit = """
+            QDateEdit {
+                color: rgb(230, 230, 230); \n
+                border: 2px solid rgb(184, 134, 11);
+            }
+
+            QCalendarWidget QTableView {
+                selection-background-color: rgb(184, 134, 11);  /* Цвет выделения */
+            }
+
+            QCalendarWidget QWidget#qt_calendar_navigationbar { 
+                background-color: rgb(0, 0, 0); 
+                color: white;
+            }
+
+            QCalendarWidget QTableView QHeaderView::section {
+                background-color: rgb(255, 255, 255);  /* Цвет строки дней недели */
+                color: rgb(255, 255, 255);    /* Цвет текста */
                 font-weight: bold;
             }
             """

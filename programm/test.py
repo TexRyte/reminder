@@ -2,6 +2,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 from settings import *
+from add_new_remind_window import *
 import sys
 import json
 
@@ -10,8 +11,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.settings_window = Settings_Window()  # Ссылка на окно настроек
-        self.settings_window.switch_to_main.connect(self.show_main_window)  # Связываем сигнал
+        self.new_remind_window = New_Remind_Window(self.settings_window)
 
+        self.settings_window.switch_to_main.connect(self.show_main_window)  # Связываем сигнал
         self.settings_window.settings_changed.connect(self.update_settings) # обновление настроек главного экрана
                 
         tray_icon = QSystemTrayIcon(QIcon("tray_icon.ico"), parent=self)
@@ -22,7 +24,7 @@ class MainWindow(QMainWindow):
 
         show_action.triggered.connect(self.show)
         quit_action.triggered.connect(QApplication.quit)
-
+ 
         tray_menu.addAction(show_action)
         tray_menu.addAction(quit_action)
 
@@ -100,6 +102,7 @@ class MainWindow(QMainWindow):
 
         self.btn_quit.clicked.connect(self.hide)
         self.btn_settings.clicked.connect(self.go_settings)
+        self.btn_add.clicked.connect(self.add_reminder)
 
         list_of_buttons = [self.btn_add, self.btn_settings, self.btn_quit]
 
@@ -192,8 +195,6 @@ class MainWindow(QMainWindow):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.resize(int(settings["width"]), int(settings["height"]))
         
-
-
     def check_window_mode(self, settings):
         if settings["window_mode"] == "fullscreen":
             self.set_fullscreen_mode()
@@ -226,10 +227,18 @@ class MainWindow(QMainWindow):
     
 
     def add_reminder(self):
-        pass
+        try:
+            if self.new_remind_window is None:  
+                self.new_remind_window = New_Remind_Window(self.settings_window)
+                
+                
+            self.new_remind_window.show()
+            self.new_remind_window.raise_()
 
+        except Exception as e:
+            print(e)         
+            sys.exit()        
 
-        
 
 
 def start():
